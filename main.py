@@ -3,7 +3,7 @@ import os
 import subprocess
 
 # توكن البوت
-TOKEN = '6756113703:AAF4L6hr6flqP26_lqZUfRa5gney40jLRz0'
+TOKEN = '7616940393:AAHpOpETi3S7BOIW7-s-PNTIdULQ0k2k3RA'
 # الايدي الخاص بك (Admin ID)
 ADMIN_ID = 7243681318
 # قائمة الأدمن (يمكن تخزينها في ملف أو قاعدة بيانات)
