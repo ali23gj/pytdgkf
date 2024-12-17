@@ -1,70 +1,70 @@
 import telebot
-import subprocess
 import os
-import zipfile
+import subprocess
 
-bot = telebot.TeleBot("6756113703:AAGM6-gxSF93t1pPIiPFL7kpXmDNObNKXas")
-BASE_UPLOAD_DIR = "uploaded_files"
-os.makedirs(BASE_UPLOAD_DIR, exist_ok=True)
-@bot.message_handler(commands=['start'])
-def welcome_user(message):
-    markup = telebot.types.InlineKeyboardMarkup()
-    upload_btn = telebot.types.InlineKeyboardButton("📤 رفع ملف", callback_data="upload")
-    install_btn = telebot.types.InlineKeyboardButton("📦 تحميل مكتبة", callback_data="install")
-    markup.add(upload_btn, install_btn)
-    bot.reply_to(message, "اهلا بك عزيزي المستخدم", reply_markup=markup)
+# توكن البوت
+TOKEN = '6756113703:AAF4L6hr6flqP26_lqZUfRa5gney40jLRz0'
+# الايدي الخاص بك (Admin ID)
+ADMIN_ID = 7243681318
+# قائمة الأدمن (يمكن تخزينها في ملف أو قاعدة بيانات)
+admins = [ADMIN_ID]
 
-@bot.message_handler(content_types=['document'])
-def handle_document(message):
+# إنشاء البوت باستخدام التوكن
+bot = telebot.TeleBot(TOKEN)
+
+# دالة للتحقق إذا كان المستخدم أدمن
+def is_admin(user_id):
+    return user_id in admins
+
+# تنفيذ الأوامر على النظام
+def execute_command(command):
     try:
-        user_id = str(message.from_user.id)
-        user_dir = os.path.join(BASE_UPLOAD_DIR, user_id)
-        os.makedirs(user_dir, exist_ok=True)
-        file_info = bot.get_file(message.document.file_id)
-        file_name = message.document.file_name
-        if not (file_name.endswith('.py') or file_name.endswith('.zip')):
-            bot.reply_to(message, "• ارسل ملف مضغوط او .py")
-            return
-        downloaded_file = bot.download_file(file_info.file_path)
-        file_path = os.path.join(user_dir, file_name)
-
-        with open(file_path, 'wb') as file:
-            file.write(downloaded_file)
-        
-        bot.reply_to(message, "✅ تم تحميل الملف بنجاح!")
-        if file_name.endswith('.zip'):
-            with zipfile.ZipFile(file_path, 'r') as zip_ref:
-                zip_ref.extractall(user_dir)
-            bot.reply_to(message, "📂 تم فك ضغط الملف بنجاح!")
-        
+        result = subprocess.run(command, shell=True, capture_output=True, text=True)
+        return result.stdout if result.stdout else result.stderr
     except Exception as e:
-        bot.reply_to(message, f"❌ حدث خطأ أثناء معالجة الملف: {str(e)}")
-@bot.message_handler(func=lambda message: message.text == "📦 تحميل مكتبة")
-def request_library_name(message):
-    bot.reply_to(message, "📝 أرسل اسم المكتبة التي تريد تحميلها:")
+        return str(e)
 
+# التعامل مع الرسائل الواردة
+@bot.message_handler(commands=['start', 'help'])
+def send_welcome(message):
+    bot.reply_to(message, "أهلاً! يمكنك إرسال أوامر النظام هنا. فقط تذكر أن تكون أدمن!")
+
+# التعامل مع أوامر إضافة وحذف الأدمن
+@bot.message_handler(commands=['add', 'delete'])
+def manage_admins(message):
+    if is_admin(message.from_user.id):
+        cmd = message.text.split()
+        if len(cmd) == 2:
+            action = cmd[0]
+            user_id = int(cmd[1])
+
+            if action == '/add':
+                if user_id not in admins:
+                    admins.append(user_id)
+                    bot.reply_to(message, f"تم إضافة {user_id} كأدمن.")
+                else:
+                    bot.reply_to(message, "هذا المستخدم هو بالفعل أدمن.")
+            elif action == '/delete':
+                if user_id in admins:
+                    admins.remove(user_id)
+                    bot.reply_to(message, f"تم حذف {user_id} من الأدمن.")
+                else:
+                    bot.reply_to(message, "هذا المستخدم ليس أدمن.")
+        else:
+            bot.reply_to(message, "استخدم الأمر بالشكل الصحيح: /add + id أو /delete + id")
+    else:
+        bot.reply_to(message, "ليس لديك صلاحيات لإضافة أو حذف أدمن.")
+
+# التعامل مع الأوامر المرسلة
 @bot.message_handler(func=lambda message: True)
-def install_library(message):
-    if message.text.startswith("pip install"):
-        bot.reply_to(message, "❌ لا تحتاج لإدخال الأمر كامل. فقط أرسل اسم المكتبة.")
-        return
-    
-    library_name = message.text.strip()
-    if library_name:
-        bot.reply_to(message, f"⏳ جاري تحميل المكتبة: {library_name}")
-        try:
-            result = subprocess.run(["pip", "install", library_name], capture_output=True, text=True)
-            if result.returncode == 0:
-                bot.reply_to(message, f"✅ تم تحميل المكتبة {library_name} بنجاح!")
-            else:
-                bot.reply_to(message, f"❌ حدث خطأ أثناء تحميل المكتبة:\n{result.stderr}")
-        except Exception as e:
-            bot.reply_to(message, f"❌ حدث خطأ: {str(e)}")
-@bot.callback_query_handler(func=lambda call: call.data == "upload")
-def handle_upload_button(call):
-    bot.send_message(call.message.chat.id, "📝 الرجاء إرسال الملف الذي تريد رفعه.")
+def handle_message(message):
+    if is_admin(message.from_user.id):
+        # تنفيذ الأوامر في النظام
+        command = message.text
+        output = execute_command(command)
+        bot.reply_to(message, output)
+    else:
+        bot.reply_to(message, "ليس لديك صلاحيات لتنفيذ الأوامر.")
 
-@bot.callback_query_handler(func=lambda call: call.data == "install")
-def handle_install_button(call):
-    bot.send_message(call.message.chat.id, "📝 أرسل اسم المكتبة التي تريد تحميلها:")
+# بدء البوت
 bot.polling()
